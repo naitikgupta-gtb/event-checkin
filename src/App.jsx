@@ -32,12 +32,19 @@ import {
 import { Html5Qrcode } from "html5-qrcode";
 import QRCode from "qrcode";
 import confetti from "canvas-confetti";
+import { createClient } from "@supabase/supabase-js";
 
 /**
  * ─────────────────────────────────────────────────────────────────────────
- *  QR-BASED EVENT CHECK-IN SYSTEM — hardened build
+ *  QR-BASED EVENT CHECK-IN SYSTEM — hardened build, Supabase-backed
  * ─────────────────────────────────────────────────────────────────────────
- *  npm install html5-qrcode qrcode canvas-confetti lucide-react
+ *  npm install html5-qrcode qrcode canvas-confetti lucide-react @supabase/supabase-js
+ *
+ *  Requires a .env.local (git-ignored) with:
+ *    VITE_SUPABASE_URL=https://your-project.supabase.co
+ *    VITE_SUPABASE_ANON_KEY=your-anon-or-publishable-key
+ *  Set the same two variables in Vercel → Project Settings → Environment
+ *  Variables, or the deployed build won't be able to reach the database.
  *
  *  SECURITY NOTE (read before real deployment):
  *  QR_SECRET and ADMIN_PIN below live in the client-side JS bundle, so
@@ -45,24 +52,29 @@ import confetti from "canvas-confetti";
  *  That's fine for stopping casual fraud (typed IDs, copy-pasted payloads,
  *  screenshots edited in Photoshop) at a college/office event, but it is
  *  NOT cryptographically airtight. For a fully tamper-proof system, move
- *  signing + verification to a small backend (Firebase Function, Supabase
- *  Edge Function, etc.) so the secret never ships to the browser.
+ *  signing + verification into a Supabase Edge Function so the secret
+ *  never ships to the browser.
  *
- *  Data model (persisted to localStorage under STORAGE_KEY):
+ *  Data model (stored in the Supabase "participants" table):
  *  {
  *    id: string,
  *    name: string,
  *    email: string,
  *    photo: string,          // base64 JPEG data URL, captured at registration
  *    attended: boolean,
- *    checkedInAt: string | null
+ *    checkedInAt: string | null   // maps to the checked_in_at column
  *  }
  * ─────────────────────────────────────────────────────────────────────────
  */
 
-const STORAGE_KEY = "eventCheckIn.participants.v2";
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
 const THEME_KEY = "eventCheckIn.theme.v1";
 const ADMIN_AUTH_KEY = "eventCheckIn.adminAuthed.v1"; // sessionStorage — cleared when tab closes
+const EVENT_KEY = "eventCheckIn.activeEvent.v1"; // which event this device is currently working on
 
 // CHANGE BOTH OF THESE BEFORE DEPLOYING. Keep them out of your public repo
 // if possible (e.g. inject via a build-time env var instead of hardcoding).
@@ -176,41 +188,113 @@ function drawSquareToDataUrl(source, sw, sh, size = 240) {
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// Persistence hook
+// Supabase → app data mapping. The DB uses snake_case (checked_in_at); the
+// rest of the app uses camelCase (checkedInAt) — this is the one place
+// that translates between them.
 // ────────────────────────────────────────────────────────────────────────
-function useParticipants() {
-  const [participants, setParticipants] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  });
+function rowToParticipant(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    photo: row.photo,
+    attended: row.attended,
+    checkedInAt: row.checked_in_at,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Live data hook — replaces localStorage. Loads the current table once,
+// then subscribes to Postgres changes so every device (this laptop, a
+// teacher's phone, a second scanner) sees registrations and check-ins
+// from every OTHER device the instant they happen, no refresh needed.
+// Scoped to a single eventId — switching events re-fetches and
+// re-subscribes to just that event's rows.
+// ────────────────────────────────────────────────────────────────────────
+function useParticipants(eventId) {
+  const [participants, setParticipants] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dbError, setDbError] = useState(null);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(participants));
-    } catch {
-      // Storage full/blocked — ignore. Photos are the biggest space cost;
-      // if this becomes a real problem, move photos to a backend instead
-      // of localStorage.
-    }
-  }, [participants]);
+    let cancelled = false;
+    setLoading(true);
+    setParticipants([]); // clear immediately on event switch, don't show stale data
 
-  return [participants, setParticipants];
+    async function loadInitial() {
+      const { data, error } = await supabase
+        .from("participants")
+        .select("*")
+        .eq("event_id", eventId);
+      if (cancelled) return;
+      if (error) {
+        setDbError(error.message);
+      } else {
+        setParticipants(data.map(rowToParticipant));
+        setDbError(null);
+      }
+      setLoading(false);
+    }
+    loadInitial();
+
+    // Real-time subscription: any INSERT/UPDATE/DELETE on the table, from
+    // ANY connected device, patches our local state directly — but only
+    // for rows belonging to THIS event, via the Postgres-side filter.
+    const channel = supabase
+      .channel(`participants-changes-${eventId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "participants", filter: `event_id=eq.${eventId}` },
+        (payload) => {
+          setParticipants((prev) => {
+            if (payload.eventType === "INSERT") {
+              const incoming = rowToParticipant(payload.new);
+              if (prev.some((p) => p.id === incoming.id)) return prev; // our own write already applied optimistically
+              return [...prev, incoming];
+            }
+            if (payload.eventType === "UPDATE") {
+              const incoming = rowToParticipant(payload.new);
+              return prev.map((p) => (p.id === incoming.id ? incoming : p));
+            }
+            if (payload.eventType === "DELETE") {
+              return prev.filter((p) => p.id !== payload.old.id);
+            }
+            return prev;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [eventId]);
+
+  return [participants, setParticipants, loading, dbError];
 }
 
 // ────────────────────────────────────────────────────────────────────────
 // Root component
 // ────────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [participants, setParticipants] = useParticipants();
+  // Which event this device is currently working on. Stored per-device —
+  // every device scanning/registering for the SAME physical event must be
+  // set to the SAME event name for the shared data to line up correctly.
+  const [eventId, setEventId] = useState(() => localStorage.getItem(EVENT_KEY) || "default-event");
+  const [participants, setParticipants, loading, dbError] = useParticipants(eventId);
   const [activeTab, setActiveTab] = useState("register");
   const [isDark, setIsDark] = useState(() => {
     const saved = localStorage.getItem(THEME_KEY);
     return saved ? saved === "dark" : true;
   });
+
+  function changeEvent(next) {
+    const trimmed = next.trim();
+    if (!trimmed) return;
+    localStorage.setItem(EVENT_KEY, trimmed);
+    setEventId(trimmed);
+  }
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -224,21 +308,38 @@ export default function App() {
     participantsRef.current = participants;
   }, [participants]);
 
-  const registerParticipant = useCallback(
-    (data) => {
-      const record = {
-        id: data.id || generateId(),
-        name: data.name.trim(),
-        email: data.email.trim(),
-        photo: data.photo,
-        attended: false,
-        checkedInAt: null,
-      };
-      setParticipants((prev) => [...prev, record]);
-      return record;
-    },
-    [setParticipants]
-  );
+  const registerParticipant = useCallback(async (data) => {
+    const record = {
+      id: data.id || generateId(),
+      name: data.name.trim(),
+      email: data.email.trim(),
+      photo: data.photo,
+      attended: false,
+      checkedInAt: null,
+    };
+    const { error } = await supabase.from("participants").insert({
+      id: record.id,
+      name: record.name,
+      email: record.email,
+      photo: record.photo,
+      attended: false,
+      checked_in_at: null,
+      event_id: eventId,
+    });
+    if (error) {
+      // Postgres unique-violation code — most likely someone reused a
+      // custom Roll/Ticket ID that's already taken within this event.
+      if (error.code === "23505") {
+        throw new Error("This Roll/Ticket ID is already registered for this event.");
+      }
+      throw new Error(error.message);
+    }
+    // Apply locally right away for instant feedback on THIS device — the
+    // real-time event will also arrive moments later, but the dedupe
+    // check inside useParticipants' subscription handler ignores it.
+    setParticipants((prev) => (prev.some((p) => p.id === record.id) ? prev : [...prev, record]));
+    return record;
+  }, [setParticipants, eventId]);
 
   // STEP 1 of check-in: verify the signature and look the ticket up, but do
   // NOT mark attendance yet. This lets the scanner pause and show the admin
@@ -274,22 +375,29 @@ export default function App() {
   }, []);
 
   // STEP 2: only called after the admin visually confirms the photo matches
-  // the person in front of them.
+  // the person in front of them. Writes to Supabase; every connected
+  // device (including this one, via the real-time subscription) then
+  // reflects the update automatically.
   const commitCheckIn = useCallback(
-    (id) => {
-      let updated = null;
-      setParticipants((prev) => {
-        const idx = prev.findIndex((p) => p.id === id);
-        if (idx === -1) return prev;
-        const checkedInAt = new Date().toISOString();
-        updated = { ...prev[idx], attended: true, checkedInAt };
-        const next = [...prev];
-        next[idx] = updated;
-        return next;
-      });
+    async (id) => {
+      const target = participantsRef.current.find((p) => p.id === id);
+      if (!target) return null;
+      const checkedInAt = new Date().toISOString();
+      const { error } = await supabase
+        .from("participants")
+        .update({ attended: true, checked_in_at: checkedInAt })
+        .eq("id", id)
+        .eq("event_id", eventId);
+      if (error) {
+        console.error("Check-in failed:", error.message);
+        return null;
+      }
+      const updated = { ...target, attended: true, checkedInAt };
+      // Apply locally right away for instant feedback on THIS device.
+      setParticipants((prev) => prev.map((p) => (p.id === id ? updated : p)));
       return updated;
     },
-    [setParticipants]
+    [setParticipants, eventId]
   );
 
   const stats = useMemo(() => {
@@ -322,13 +430,16 @@ export default function App() {
             </div>
           </div>
 
-          <button
-            onClick={() => setIsDark((d) => !d)}
-            aria-label="Toggle dark mode"
-            className="h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-          >
-            {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
+          <div className="flex items-center gap-2">
+            <EventSwitcher eventId={eventId} onChange={changeEvent} />
+            <button
+              onClick={() => setIsDark((d) => !d)}
+              aria-label="Toggle dark mode"
+              className="h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
 
         <nav className="mx-auto max-w-6xl px-4 sm:px-6 flex gap-1 overflow-x-auto pb-2 -mt-1">
@@ -353,7 +464,21 @@ export default function App() {
         </nav>
       </header>
 
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-6">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-6 space-y-3">
+        {dbError && (
+          <div className="rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-300 text-sm px-4 py-3 flex items-start gap-2">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>
+              Couldn't connect to the database: {dbError}. Check your Supabase URL/key in the
+              environment variables, and that you're online.
+            </span>
+          </div>
+        )}
+        {loading && !dbError && (
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-sm px-4 py-3">
+            Loading participants…
+          </div>
+        )}
         <StatsCards stats={stats} />
       </div>
 
@@ -365,6 +490,121 @@ export default function App() {
         {activeTab === "dashboard" && <AttendanceDashboard participants={participants} />}
       </main>
     </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Event switcher — lets this device declare which event it's working on.
+// Admin-only: requires the same PIN as the scanner before it can be
+// changed, so a regular participant registering can't accidentally (or
+// deliberately) retag themselves into the wrong event.
+// ────────────────────────────────────────────────────────────────────────
+function EventSwitcher({ eventId, onChange }) {
+  const [mode, setMode] = useState("display"); // "display" | "pin" | "editing"
+  const [draft, setDraft] = useState(eventId);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState(false);
+
+  function startEdit() {
+    // Reuses the same unlocked-for-this-session flag as the Scanner tab —
+    // if the admin already entered the PIN once, they don't need to again.
+    if (sessionStorage.getItem(ADMIN_AUTH_KEY) === "true") {
+      setDraft(eventId);
+      setMode("editing");
+    } else {
+      setPin("");
+      setPinError(false);
+      setMode("pin");
+    }
+  }
+
+  function submitPin(e) {
+    e.preventDefault();
+    if (pin === ADMIN_PIN) {
+      sessionStorage.setItem(ADMIN_AUTH_KEY, "true");
+      setDraft(eventId);
+      setMode("editing");
+    } else {
+      setPinError(true);
+      setPin("");
+    }
+  }
+
+  if (mode === "pin") {
+    return (
+      <form onSubmit={submitPin} className="flex items-center gap-1">
+        <input
+          autoFocus
+          type="password"
+          inputMode="numeric"
+          value={pin}
+          onChange={(e) => {
+            setPin(e.target.value);
+            setPinError(false);
+          }}
+          placeholder="Admin PIN"
+          className={`w-24 rounded-lg border bg-slate-50 dark:bg-slate-950 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 ${
+            pinError ? "border-red-400" : "border-slate-200 dark:border-slate-800"
+          }`}
+        />
+        <button type="submit" className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-2.5 py-1.5">
+          Unlock
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("display")}
+          className="rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium px-2 py-1.5"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </form>
+    );
+  }
+
+  if (mode === "editing") {
+    return (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onChange(draft);
+          setMode("display");
+        }}
+        className="flex items-center gap-1"
+      >
+        <input
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="e.g. fest-2026-day1"
+          className="w-40 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <button type="submit" className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-2.5 py-1.5">
+          Set
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(eventId);
+            setMode("display");
+          }}
+          className="rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium px-2 py-1.5"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </form>
+    );
+  }
+
+  return (
+    <button
+      onClick={startEdit}
+      className="flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 px-2.5 py-1.5 text-xs font-medium"
+      title="Admin only — change which event this device is working on"
+    >
+      <Lock className="h-3 w-3 text-slate-400" />
+      <span className="text-slate-400">Event:</span>
+      <span className="font-mono">{eventId}</span>
+    </button>
   );
 }
 
@@ -552,7 +792,10 @@ function RegisterParticipant({ onRegister }) {
     setSubmitting(true);
 
     try {
-      const record = onRegister({
+      // Now async — this writes to Supabase and waits for confirmation
+      // before we generate the QR, so we never hand out a ticket for a
+      // registration that didn't actually save.
+      const record = await onRegister({
         id: form.rollId.trim() || undefined,
         name: form.name,
         email: form.email,
@@ -572,8 +815,10 @@ function RegisterParticipant({ onRegister }) {
       });
       setQrDataUrl(dataUrl);
       setRegistered(record);
-    } catch {
-      setErrors({ form: "Could not generate QR code. Please try again." });
+    } catch (err) {
+      setErrors({
+        form: `Could not complete registration. ${err?.message || "Please try again."}`,
+      });
     } finally {
       setSubmitting(false);
     }
@@ -936,14 +1181,17 @@ function ScannerInner({ resolveScan, commitCheckIn }) {
     setManualInput("");
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (!confirmTarget) return;
-    const updated = commitCheckIn(confirmTarget.id);
+    const updated = await commitCheckIn(confirmTarget.id);
     setConfirmTarget(null);
     if (updated) {
       playSuccessBeep();
       fireConfetti();
       setBanner({ type: "success", message: `${updated.name} checked in successfully.` });
+    } else {
+      playErrorBeep();
+      setBanner({ type: "duplicate", message: "Check-in failed — please try scanning again." });
     }
     resumeScanner();
   }
