@@ -419,11 +419,22 @@ export default function App() {
       <header className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
+            <img
+              src="https://vividhata.club/viviLogo.png"
+              alt="Vividhata Club"
+              className="h-9 w-9 rounded-xl object-contain bg-white shadow-lg shadow-indigo-600/20 p-1"
+              onError={(e) => {
+                // If the club site is unreachable, fall back to the QR icon
+                // instead of showing a broken image.
+                e.currentTarget.style.display = "none";
+                e.currentTarget.nextSibling.style.display = "flex";
+              }}
+            />
+            <div className="h-9 w-9 rounded-xl bg-indigo-600 hidden items-center justify-center shadow-lg shadow-indigo-600/30">
               <QrCode className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-base sm:text-lg font-semibold leading-tight">Event Check-In</h1>
+              <h1 className="text-base sm:text-lg font-semibold leading-tight">VIVIDHATA Check-In</h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight hidden sm:block">
                 Signed QR tickets · photo-verified entry
               </p>
