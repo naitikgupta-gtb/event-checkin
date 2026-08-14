@@ -169,10 +169,14 @@ function playSuccessBeep() {
 function playErrorBeep() {
   playBeep({ frequency: 220, duration: 220, type: "square" });
 }
+// Confetti in the brand's spectrum palette — ties the celebratory moment
+// back to "vividhata" (diversity of hues) instead of generic rainbow defaults.
+const BRAND_CONFETTI_COLORS = ["#b91c1c", "#7f1d1d", "#d4a017", "#ffffff"];
+
 function fireConfetti() {
-  confetti({ particleCount: 120, spread: 75, origin: { y: 0.6 }, zIndex: 9999 });
-  confetti({ particleCount: 60, angle: 60, spread: 55, origin: { x: 0, y: 0.7 }, zIndex: 9999 });
-  confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1, y: 0.7 }, zIndex: 9999 });
+  confetti({ particleCount: 120, spread: 75, origin: { y: 0.6 }, zIndex: 9999, colors: BRAND_CONFETTI_COLORS });
+  confetti({ particleCount: 60, angle: 60, spread: 55, origin: { x: 0, y: 0.7 }, zIndex: 9999, colors: BRAND_CONFETTI_COLORS });
+  confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1, y: 0.7 }, zIndex: 9999, colors: BRAND_CONFETTI_COLORS });
 }
 
 // Resizes/crops any image source (video frame or uploaded file) down to a
@@ -415,26 +419,30 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors">
-      <header className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur">
+    <div className="min-h-screen bg-slate-100 text-slate-900 dark:bg-neutral-950 dark:text-slate-100 transition-colors">
+      <header className="sticky top-0 z-30 border-b border-slate-200 dark:border-neutral-800 bg-white/80 dark:bg-neutral-950/80 backdrop-blur">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <img
-              src="https://vividhata.club/viviLogo.png"
-              alt="Vividhata Club"
-              className="h-9 w-9 rounded-xl object-contain bg-white shadow-lg shadow-indigo-600/20 p-1"
-              onError={(e) => {
-                // If the club site is unreachable, fall back to the QR icon
-                // instead of showing a broken image.
-                e.currentTarget.style.display = "none";
-                e.currentTarget.nextSibling.style.display = "flex";
-              }}
-            />
-            <div className="h-9 w-9 rounded-xl bg-indigo-600 hidden items-center justify-center shadow-lg shadow-indigo-600/30">
-              <QrCode className="h-5 w-5 text-white" />
+            {/* Gold ring, echoing the club's coin-medallion logo — a simple
+                solid border, not a gradient, kept deliberately restrained. */}
+            <div className="h-9 w-9 rounded-full border-2 border-amber-500 bg-slate-950 flex items-center justify-center overflow-hidden shadow-sm">
+              <img
+                src="https://vividhata.club/viviLogo.png"
+                alt="Vividhata Club"
+                className="h-full w-full object-contain p-0.5"
+                onError={(e) => {
+                  // If the club site is unreachable, fall back to the QR
+                  // icon instead of showing a broken image.
+                  e.currentTarget.style.display = "none";
+                  e.currentTarget.nextSibling.style.display = "flex";
+                }}
+              />
+              <QrCode className="h-4 w-4 text-amber-500 hidden" />
             </div>
             <div>
-              <h1 className="text-base sm:text-lg font-semibold leading-tight">VIVIDHATA Check-In</h1>
+              <h1 className="font-display text-base sm:text-lg font-semibold leading-tight tracking-widest uppercase">
+                Vividhata Check-In
+              </h1>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-tight hidden sm:block">
                 Signed QR tickets · photo-verified entry
               </p>
@@ -446,7 +454,7 @@ export default function App() {
             <button
               onClick={() => setIsDark((d) => !d)}
               aria-label="Toggle dark mode"
-              className="h-9 w-9 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="h-9 w-9 rounded-lg border border-slate-200 dark:border-neutral-800 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors"
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
@@ -461,10 +469,10 @@ export default function App() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
                   active
-                    ? "bg-indigo-600 text-white shadow shadow-indigo-600/30"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    ? "border border-red-600 bg-red-950/60 text-red-50 shadow-[0_0_16px_rgba(185,28,28,0.45)]"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-neutral-800"
                 }`}
               >
                 <Icon className="h-4 w-4" />
@@ -474,6 +482,15 @@ export default function App() {
           })}
         </nav>
       </header>
+
+      {/* Signature moment — the club's glowing diamond-line motif, used
+          exactly once here, not repeated elsewhere, so it stays special. */}
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-4 hidden sm:block">
+        <div className="relative h-px bg-gradient-to-r from-transparent via-red-600 to-transparent shadow-[0_0_8px_rgba(220,38,38,0.6)]">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 h-1.5 w-1.5 rotate-45 bg-red-500 shadow-[0_0_6px_rgba(220,38,38,0.8)]" />
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 h-1.5 w-1.5 rotate-45 bg-red-500 shadow-[0_0_6px_rgba(220,38,38,0.8)]" />
+        </div>
+      </div>
 
       <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-6 space-y-3">
         {dbError && (
@@ -486,7 +503,7 @@ export default function App() {
           </div>
         )}
         {loading && !dbError && (
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 text-sm px-4 py-3">
+          <div className="rounded-xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-slate-500 dark:text-slate-400 text-sm px-4 py-3">
             Loading participants…
           </div>
         )}
@@ -554,8 +571,8 @@ function EventSwitcher({ eventId, onChange }) {
             setPinError(false);
           }}
           placeholder="Admin PIN"
-          className={`w-24 rounded-lg border bg-slate-50 dark:bg-slate-950 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 ${
-            pinError ? "border-red-400" : "border-slate-200 dark:border-slate-800"
+          className={`w-24 rounded-lg border bg-slate-50 dark:bg-neutral-950 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500 ${
+            pinError ? "border-red-400" : "border-slate-200 dark:border-neutral-800"
           }`}
         />
         <button type="submit" className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-2.5 py-1.5">
@@ -564,7 +581,7 @@ function EventSwitcher({ eventId, onChange }) {
         <button
           type="button"
           onClick={() => setMode("display")}
-          className="rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium px-2 py-1.5"
+          className="rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-medium px-2 py-1.5"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -587,7 +604,7 @@ function EventSwitcher({ eventId, onChange }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="e.g. fest-2026-day1"
-          className="w-40 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-40 rounded-lg border border-slate-200 dark:border-neutral-800 bg-slate-50 dark:bg-neutral-950 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
         />
         <button type="submit" className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-2.5 py-1.5">
           Set
@@ -598,7 +615,7 @@ function EventSwitcher({ eventId, onChange }) {
             setDraft(eventId);
             setMode("display");
           }}
-          className="rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium px-2 py-1.5"
+          className="rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-medium px-2 py-1.5"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -609,7 +626,7 @@ function EventSwitcher({ eventId, onChange }) {
   return (
     <button
       onClick={startEdit}
-      className="flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 px-2.5 py-1.5 text-xs font-medium"
+      className="flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-800 px-2.5 py-1.5 text-xs font-medium"
       title="Admin only — change which event this device is working on"
     >
       <Lock className="h-3 w-3 text-slate-400" />
@@ -624,7 +641,7 @@ function EventSwitcher({ eventId, onChange }) {
 // ────────────────────────────────────────────────────────────────────────
 function StatsCards({ stats }) {
   const cards = [
-    { label: "Total Registered", value: stats.total, icon: Users, color: "text-indigo-600 dark:text-indigo-400", bar: "bg-indigo-600" },
+    { label: "Total Registered", value: stats.total, icon: Users, color: "text-red-700 dark:text-red-400", bar: "bg-red-700" },
     { label: "Checked In", value: stats.attended, icon: UserCheck, color: "text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-600" },
     { label: "Remaining", value: stats.pending, icon: UserX, color: "text-amber-600 dark:text-amber-400", bar: "bg-amber-500" },
   ];
@@ -635,13 +652,13 @@ function StatsCards({ stats }) {
         const Icon = c.icon;
         const pct = stats.total === 0 ? 0 : Math.round((c.value / stats.total) * 100);
         return (
-          <div key={c.label} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm">
+          <div key={c.label} className="rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-500 dark:text-slate-400">{c.label}</span>
               <Icon className={`h-4 w-4 ${c.color}`} />
             </div>
             <div className="mt-1 flex items-end gap-2">
-              <span className="text-2xl font-bold tabular-nums">{c.value}</span>
+              <span className="font-display text-2xl font-bold tabular-nums tracking-tight">{c.value}</span>
               <span className="text-xs text-slate-400 mb-1">{pct}%</span>
             </div>
             <div className="mt-3 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
@@ -728,11 +745,11 @@ function PhotoCapture({ value, onChange, error }) {
 
       {value ? (
         <div className="mt-2 flex items-center gap-3">
-          <img src={value} alt="Captured" className="h-20 w-20 rounded-xl object-cover border border-slate-200 dark:border-slate-800" />
+          <img src={value} alt="Captured" className="h-20 w-20 rounded-xl object-cover border border-slate-200 dark:border-neutral-800" />
           <button
             type="button"
             onClick={() => onChange(null)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium px-3 py-1.5"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-medium px-3 py-1.5"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Retake
@@ -742,23 +759,23 @@ function PhotoCapture({ value, onChange, error }) {
         <div className="mt-2 space-y-2">
           {cameraOn ? (
             <div className="space-y-2">
-              <video ref={videoRef} muted playsInline className="w-40 h-40 rounded-xl object-cover border border-slate-200 dark:border-slate-800 bg-black" />
+              <video ref={videoRef} muted playsInline className="w-40 h-40 rounded-xl object-cover border border-slate-200 dark:border-neutral-800 bg-black" />
               <div className="flex gap-2">
                 <button type="button" onClick={capture} className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium px-3 py-1.5">
                   Capture
                 </button>
-                <button type="button" onClick={stopCamera} className="rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium px-3 py-1.5">
+                <button type="button" onClick={stopCamera} className="rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-medium px-3 py-1.5">
                   Cancel
                 </button>
               </div>
             </div>
           ) : (
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={startCamera} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium px-3 py-1.5">
+              <button type="button" onClick={startCamera} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-medium px-3 py-1.5">
                 <Camera className="h-3.5 w-3.5" />
                 Use camera
               </button>
-              <label className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-medium px-3 py-1.5 cursor-pointer">
+              <label className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-800 text-xs font-medium px-3 py-1.5 cursor-pointer">
                 <ImagePlus className="h-3.5 w-3.5" />
                 Upload photo
                 <input type="file" accept="image/*" onChange={handleFile} className="hidden" />
@@ -853,8 +870,8 @@ function RegisterParticipant({ onRegister }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-sm">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
+      <div className="rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm">
+        <h2 className="font-display text-lg font-semibold tracking-wide uppercase flex items-center gap-2">
           <UserPlus className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
           Register Participant
         </h2>
@@ -870,7 +887,7 @@ function RegisterParticipant({ onRegister }) {
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="e.g. Priya Sharma"
-              className={`mt-1 w-full rounded-lg border bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 ${errors.name ? "border-red-400" : "border-slate-200 dark:border-slate-800"}`}
+              className={`mt-1 w-full rounded-lg border bg-slate-50 dark:bg-neutral-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 ${errors.name ? "border-red-400" : "border-slate-200 dark:border-neutral-800"}`}
             />
             {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
           </div>
@@ -882,7 +899,7 @@ function RegisterParticipant({ onRegister }) {
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               placeholder="priya@example.com"
-              className={`mt-1 w-full rounded-lg border bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 ${errors.email ? "border-red-400" : "border-slate-200 dark:border-slate-800"}`}
+              className={`mt-1 w-full rounded-lg border bg-slate-50 dark:bg-neutral-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 ${errors.email ? "border-red-400" : "border-slate-200 dark:border-neutral-800"}`}
             />
             {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
           </div>
@@ -896,7 +913,7 @@ function RegisterParticipant({ onRegister }) {
               value={form.rollId}
               onChange={(e) => setForm((f) => ({ ...f, rollId: e.target.value }))}
               placeholder="Leave blank to auto-generate"
-              className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              className="mt-1 w-full rounded-lg border border-slate-200 dark:border-neutral-800 bg-slate-50 dark:bg-neutral-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -907,14 +924,14 @@ function RegisterParticipant({ onRegister }) {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-sm font-medium py-2.5 transition-colors shadow shadow-indigo-600/30"
+            className="w-full rounded-lg border border-red-600 bg-red-950/40 hover:bg-red-900/50 disabled:opacity-60 text-red-50 text-sm font-semibold uppercase tracking-wider py-2.5 transition-colors shadow-[0_0_20px_rgba(185,28,28,0.35)]"
           >
             {submitting ? "Generating…" : "Generate QR Ticket"}
           </button>
         </form>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-sm flex flex-col items-center justify-center text-center min-h-[400px]">
+      <div className="rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm flex flex-col items-center justify-center text-center min-h-[400px]">
         {!registered && (
           <div className="text-slate-400 dark:text-slate-600">
             <QrCode className="h-16 w-16 mx-auto mb-3 opacity-40" />
@@ -924,8 +941,8 @@ function RegisterParticipant({ onRegister }) {
 
         {registered && qrDataUrl && (
           <div className="w-full">
-            <img src={registered.photo} alt={registered.name} className="mx-auto h-16 w-16 rounded-full object-cover border border-slate-200 dark:border-slate-800 mb-3" />
-            <img src={qrDataUrl} alt={`QR ticket for ${registered.name}`} className="mx-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white p-2 w-52 h-52" />
+            <img src={registered.photo} alt={registered.name} className="mx-auto h-16 w-16 rounded-full object-cover border border-slate-200 dark:border-neutral-800 mb-3" />
+            <img src={qrDataUrl} alt={`QR ticket for ${registered.name}`} className="mx-auto rounded-xl border border-slate-200 dark:border-neutral-800 bg-white p-2 w-52 h-52" />
             <div className="mt-4 space-y-0.5">
               <p className="font-semibold">{registered.name}</p>
               <p className="text-sm text-slate-500 dark:text-slate-400">{registered.email}</p>
@@ -937,7 +954,7 @@ function RegisterParticipant({ onRegister }) {
                 <Download className="h-4 w-4" />
                 Download QR
               </button>
-              <button onClick={handleRegisterAnother} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium px-4 py-2 transition-colors">
+              <button onClick={handleRegisterAnother} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-800 text-sm font-medium px-4 py-2 transition-colors">
                 Register Another
               </button>
             </div>
@@ -987,11 +1004,11 @@ function AdminPinGate({ children }) {
   if (authed) return children;
 
   return (
-    <div className="max-w-sm mx-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm text-center">
-      <div className="h-12 w-12 rounded-full bg-indigo-600/10 flex items-center justify-center mx-auto mb-3">
-        <Lock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+    <div className="max-w-sm mx-auto rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-6 shadow-sm text-center">
+      <div className="h-12 w-12 rounded-full border-2 border-amber-500 bg-white dark:bg-neutral-900 flex items-center justify-center mx-auto mb-3">
+        <Lock className="h-5 w-5 text-red-700 dark:text-red-400" />
       </div>
-      <h2 className="text-lg font-semibold">Admin Access Required</h2>
+      <h2 className="font-display text-lg font-semibold tracking-wide uppercase">Admin Access Required</h2>
       <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
         Enter the admin PIN to open the scanner. Only trusted staff should have this.
       </p>
@@ -1004,12 +1021,12 @@ function AdminPinGate({ children }) {
           onChange={(e) => setPin(e.target.value)}
           disabled={locked}
           placeholder="Enter PIN"
-          className="w-full text-center tracking-[0.4em] rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+          className="w-full text-center tracking-[0.4em] rounded-lg border border-slate-200 dark:border-neutral-800 bg-slate-50 dark:bg-neutral-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600 disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={locked || !pin}
-          className="w-full rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-sm font-medium py-2.5 transition-colors"
+          className="w-full rounded-lg border border-red-600 bg-red-950/40 hover:bg-red-900/50 disabled:opacity-50 text-red-50 text-sm font-semibold uppercase tracking-wider py-2.5 transition-colors shadow-[0_0_20px_rgba(185,28,28,0.35)]"
         >
           {locked ? `Locked — try again in ${secondsLeft}s` : "Unlock Scanner"}
         </button>
@@ -1215,9 +1232,9 @@ function ScannerInner({ resolveScan, commitCheckIn }) {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5 sm:p-6 shadow-sm">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-lg font-semibold flex items-center gap-2">
+          <h2 className="font-display text-lg font-semibold tracking-wide uppercase flex items-center gap-2">
             <ScanLine className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
             Admin QR Scanner
             <ShieldCheck className="h-4 w-4 text-emerald-500" title="Admin session active" />
@@ -1231,7 +1248,7 @@ function ScannerInner({ resolveScan, commitCheckIn }) {
               setConfirmTarget(null);
             }}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${
-              manualMode ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
+              manualMode ? "bg-indigo-600 text-white border-indigo-600" : "border-slate-200 dark:border-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-800"
             }`}
           >
             <KeyRound className="h-3.5 w-3.5" />
@@ -1254,7 +1271,7 @@ function ScannerInner({ resolveScan, commitCheckIn }) {
 
         {!manualMode ? (
           <div className="mt-4">
-            <div id={SCANNER_ELEMENT_ID} className="w-full aspect-square max-w-sm mx-auto rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-950" />
+            <div id={SCANNER_ELEMENT_ID} className="w-full aspect-square max-w-sm mx-auto rounded-xl overflow-hidden border border-slate-200 dark:border-neutral-800 bg-neutral-950" />
             <div className="mt-3 flex items-center justify-center gap-2 text-xs">
               {isScanning ? (
                 <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
@@ -1288,7 +1305,7 @@ function ScannerInner({ resolveScan, commitCheckIn }) {
               onChange={(e) => setManualInput(e.target.value)}
               rows={3}
               placeholder='{"id":"TCK-XXXX","name":"...","email":"...","sig":"..."}'
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-200 dark:border-neutral-800 bg-slate-50 dark:bg-neutral-950 px-3 py-2 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <p className="text-xs text-slate-400">
               A payload without a valid "sig" field (e.g. hand-typed from a copied ID) will always be rejected.
@@ -1314,13 +1331,15 @@ function ScannerInner({ resolveScan, commitCheckIn }) {
 function ConfirmIdentityModal({ participant, onConfirm, onReject }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-xl text-center">
-        <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">Confirm identity</p>
-        <img
-          src={participant.photo}
-          alt={participant.name}
-          className="mx-auto mt-3 h-32 w-32 rounded-2xl object-cover border-2 border-indigo-200 dark:border-indigo-500/40"
-        />
+      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 p-6 shadow-xl text-center">
+        <p className="text-xs font-medium text-amber-600 dark:text-amber-500 uppercase tracking-wide">Confirm identity</p>
+        <div className="mx-auto mt-3 h-32 w-32 rounded-2xl border-4 border-amber-500 overflow-hidden">
+          <img
+            src={participant.photo}
+            alt={participant.name}
+            className="h-full w-full object-cover bg-white dark:bg-neutral-900"
+          />
+        </div>
         <p className="mt-3 font-semibold text-lg">{participant.name}</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">{participant.email}</p>
         <p className="text-xs font-mono text-slate-400 mt-1">{participant.id}</p>
@@ -1328,7 +1347,7 @@ function ConfirmIdentityModal({ participant, onConfirm, onReject }) {
           Does this photo match the person in front of you?
         </p>
         <div className="mt-4 flex gap-2">
-          <button onClick={onReject} className="flex-1 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium py-2 transition-colors">
+          <button onClick={onReject} className="flex-1 rounded-lg border border-slate-200 dark:border-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-800 text-sm font-medium py-2 transition-colors">
             Not a match
           </button>
           <button onClick={onConfirm} className="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium py-2 transition-colors">
@@ -1343,7 +1362,7 @@ function ConfirmIdentityModal({ participant, onConfirm, onReject }) {
 function ErrorModal({ reason, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-xl">
+      <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-neutral-800 p-6 shadow-xl">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
             <XCircle className="h-5 w-5" />
@@ -1389,7 +1408,7 @@ function AttendanceDashboard({ participants }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 sm:p-5 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 sm:p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
           <div className="relative flex-1">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1398,16 +1417,16 @@ function AttendanceDashboard({ participants }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, email, or ticket ID…"
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-slate-200 dark:border-neutral-800 bg-slate-50 dark:bg-neutral-950 pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
-          <div className="flex gap-1 rounded-lg border border-slate-200 dark:border-slate-800 p-1 self-start">
+          <div className="flex gap-1 rounded-lg border border-slate-200 dark:border-neutral-800 p-1 self-start">
             {filters.map((f) => (
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                  filter === f.id ? "bg-indigo-600 text-white" : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  filter === f.id ? "bg-indigo-600 text-white" : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-neutral-800"
                 }`}
               >
                 {f.label}
@@ -1417,7 +1436,7 @@ function AttendanceDashboard({ participants }) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm overflow-hidden">
         {filtered.length === 0 ? (
           <div className="p-10 text-center text-sm text-slate-400">No participants match your search.</div>
         ) : (
@@ -1426,7 +1445,7 @@ function AttendanceDashboard({ participants }) {
               <li key={p.id} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3">
                 <div className="flex items-center gap-3 min-w-0">
                   {p.photo ? (
-                    <img src={p.photo} alt={p.name} className="h-9 w-9 rounded-full object-cover shrink-0 border border-slate-200 dark:border-slate-800" />
+                    <img src={p.photo} alt={p.name} className="h-9 w-9 rounded-full object-cover shrink-0 border border-slate-200 dark:border-neutral-800" />
                   ) : (
                     <div className="h-9 w-9 rounded-full bg-slate-100 dark:bg-slate-800 shrink-0" />
                   )}
